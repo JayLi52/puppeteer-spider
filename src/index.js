@@ -1,7 +1,9 @@
 const puppeteer = require("puppeteer");
 const moment = require("moment");
 const MusicServer = require("./server/music.js");
-const sleep = require('sleep')
+const sleep = require("sleep");
+const TimeSchedule = require("node-schedule");
+
 require("./mongo.js");
 
 async function init() {
@@ -16,10 +18,9 @@ async function init() {
   const page = await browser.newPage();
   for (let i = 0; i < 1191; i += 35) {
     const item = await crawlMusic(page, i);
-    await sleep.sleep(1)
+    await sleep.sleep(1); // 高频请求导致只爬取了5条
     musicPlayList = musicPlayList.concat(item);
   }
-  console.log(musicPlayList.length)
 
   // 保存之前去重
   let hash = {};
@@ -28,7 +29,8 @@ async function init() {
     return acc;
   }, []);
 
-  // console.log(musicPlayList.length)
+  console.log(musicPlayList.length)
+
   // 保存到 mongodb 中
   for (let i = 0; i < musicPlayList.length; i++) {
     const item = musicPlayList[i];
@@ -36,6 +38,7 @@ async function init() {
     item.show = true;
     MusicServer.save(item);
   }
+  browser.close();
 }
 
 async function crawlMusic(page, pageNumber) {
@@ -77,4 +80,8 @@ async function crawlMusic(page, pageNumber) {
   return result;
 }
 
-init();
+(function() {
+  TimeSchedule.scheduleJob("0 50 0 * * *", async () => {
+    await init();
+  });
+})();
